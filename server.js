@@ -11,15 +11,6 @@ const __dirname  = dirname(__filename);
 const app = express();
 const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
 
-// Middleware CSP: permite conexões same-origin e ao domínio da APIPASS
-app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; connect-src 'self' https://core.apipass.com.br"
-  );
-  next();
-});
-
 // Cache em memória dos produtos
 let cachedProducts = [];
 
@@ -31,14 +22,18 @@ app.use('/loja', express.static(path.join(__dirname)));
 
 /**
  * 3) POST /loja/api/products
- *    Recebe JSON da APIPASS (ou { page, limit }), popula cache e retorna produtos
+ *    Recebe JSON da APIPASS (ou estrutura com { page, limit })
+ *    Popula cache e retorna array formatado de produtos
  */
 app.post('/loja/api/products', async (req, res) => {
   console.log('Recebido POST /loja/api/products', JSON.stringify(req.body).slice(0,200));
   try {
-    const incoming = req.body.body?.responseBody ? req.body.body : req.body;
+    // Extrai responseBody: primeira tenta no path usual, senão no nível superior
+    const incoming = req.body.body && req.body.body.responseBody
+      ? req.body.body
+      : req.body;
     const respBody = incoming.responseBody;
-    if (!respBody?.rows) {
+    if (!respBody || !Array.isArray(respBody.rows)) {
       return res.status(400).json({ error: 'Formato de dados inválido' });
     }
 
@@ -46,7 +41,7 @@ app.post('/loja/api/products', async (req, res) => {
     const idx = {};
     respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
 
-    // Atualiza cache
+    // Atualiza cache com objetos legíveis
     cachedProducts = respBody.rows.map(r => ({
       id:        r[idx.CODPROD],
       name:      (r[idx.DESCRPROD] || '').trim(),
@@ -65,7 +60,7 @@ app.post('/loja/api/products', async (req, res) => {
 
 /**
  * 4) GET /loja/api/products
- *    Retorna cache (204 se vazio)
+ *    Entrega apenas o cache (ou 204 se vazio)
  */
 app.get('/loja/api/products', (req, res) => {
   if (!cachedProducts.length) {
@@ -74,7 +69,7 @@ app.get('/loja/api/products', (req, res) => {
   return res.json({ products: cachedProducts });
 });
 
-// 5) SPA catch-all
+// 5) Catch-all para SPA
 app.get('/loja/*', (_, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
