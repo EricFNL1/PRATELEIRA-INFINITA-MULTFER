@@ -1,15 +1,14 @@
 // public/js/main.js
-// Monta cards de produtos carregados do servidor via cache
+// Monta cards de produtos diretamente da APIPASS via GET trigger
 
 document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('product-list');
 
-  // Cria overlay de inicialização
+  // Overlay de inicialização
   const overlay = document.createElement('div');
   overlay.id = 'start-overlay';
   Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '0', left: '0',
+    position: 'fixed', top: '0', left: '0',
     width: '100%', height: '100%',
     backgroundColor: '#fff',
     display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -23,38 +22,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   startBtn.addEventListener('click', async () => {
     try {
-      // Chama trigger APIPASS via POST
-      const res = await fetch('/loja/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 1, limit: 100 })
-      });
-      if (!res.ok) throw new Error('Falha ao carregar produtos');
-      // Remove overlay e carrega produtos
+      // Chama trigger APIPASS via GET
+      const response = await fetch('https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const respBody = data.body?.responseBody;
+      if (!respBody) throw new Error('JSON inesperado da APIPASS');
+
+      // Mapeia colunas
+      const idx = {};
+      respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
+      // Transforma rows em array legível
+      const products = respBody.rows.map(r => ({
+        id:        r[idx.CODPROD],
+        name:      (r[idx.DESCRPROD] || '').trim(),
+        price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
+        available: r[idx.DISPONIVEL],
+        image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
+      }));
+
+      // Remove overlay e renderiza cards
       overlay.remove();
-      loadProducts();
+      products.forEach(prod => renderCard(prod, list));
     } catch (e) {
-      console.error(e);
-      alert('Erro ao iniciar. Tente novamente.');
+      console.error('Erro ao buscar produtos:', e);
+      alert('Erro ao iniciar. Confira o console.');
     }
   });
 
-  // Função para carregar produtos do cache e renderizar
-  async function loadProducts() {
-    try {
-      const res = await fetch('/loja/api/products');
-      if (res.status === 204) {
-        console.warn('Nenhum produto em cache ainda.');
-        return;
-      }
-      const { products } = await res.json();
-      products.forEach(prod => renderCard(prod, list));
-    } catch (e) {
-      console.error('Erro ao carregar produtos:', e);
-    }
-  }
-
-  // Função para renderizar cada card
+  // renderiza um card
   function renderCard(prod, container) {
     const col = document.createElement('div');
     col.className = 'col-sm-6 col-md-4 col-lg-3 mb-4';
@@ -79,5 +75,5 @@ document.addEventListener('DOMContentLoaded', () => {
     container.appendChild(col);
   }
 
-  // Não chama loadProducts imediatamente, espera click no Iniciar
+  // Não carrega produtos antes do clique
 });
