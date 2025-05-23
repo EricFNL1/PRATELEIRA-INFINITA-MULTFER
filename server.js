@@ -17,28 +17,31 @@ let cachedProducts = [];
 // 1) Body-parser JSON
 app.use(express.json());
 
-// 2) Servir estáticos (HTML/CSS/JS/imagens) em /loja
+// 2) Servir estáticos em /loja
 app.use('/loja', express.static(path.join(__dirname)));
 
-// 3) POST /loja/api/products — ingestão da trigger APIPASS
+/**
+ * 3) POST /loja/api/products
+ *    Recebe JSON da APIPASS (ou estrutura com { page, limit })
+ *    Popula cache e retorna array formatado de produtos
+ */
 app.post('/loja/api/products', async (req, res) => {
+  console.log('Recebido POST /loja/api/products', JSON.stringify(req.body).slice(0,200));
   try {
-    let respBody;
-    if (req.body.body?.responseBody) {
-      // veio a resposta bruta da APIPASS
-      respBody = req.body.body.responseBody;
-    } else {
-      // teste manual via { page, limit }
-      const { page = 1, limit = 100 } = req.body;
-      const apiRes = await axios.get(API_PASS_URL, { params: { page, limit } });
-      respBody = apiRes.data.body.responseBody;
+    // Extrai responseBody: primeira tenta no path usual, senão no nível superior
+    const incoming = req.body.body && req.body.body.responseBody
+      ? req.body.body
+      : req.body;
+    const respBody = incoming.responseBody;
+    if (!respBody || !Array.isArray(respBody.rows)) {
+      return res.status(400).json({ error: 'Formato de dados inválido' });
     }
 
-    // monta índice de colunas
+    // Monta índice de colunas
     const idx = {};
     respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
 
-    // atualiza cache
+    // Atualiza cache com objetos legíveis
     cachedProducts = respBody.rows.map(r => ({
       id:        r[idx.CODPROD],
       name:      (r[idx.DESCRPROD] || '').trim(),
@@ -47,31 +50,31 @@ app.post('/loja/api/products', async (req, res) => {
       image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
     }));
 
+    console.log(`Cache atualizado com ${cachedProducts.length} produtos`);
     return res.json({ products: cachedProducts });
   } catch (err) {
-    console.error('Erro ingerindo produtos:', err);
+    console.error('Erro ao processar POST /loja/api/products:', err);
     return res.status(500).json({ error: 'Não foi possível processar produtos.' });
   }
 });
 
-// 4) GET /loja/api/products — entrega o cache, sem tocar a APIPASS de novo
+/**
+ * 4) GET /loja/api/products
+ *    Entrega apenas o cache (ou 204 se vazio)
+ */
 app.get('/loja/api/products', (req, res) => {
   if (!cachedProducts.length) {
-    return res.status(204).json({ products: [] });
+    return res.status(204).end();
   }
   return res.json({ products: cachedProducts });
 });
 
-// 5) Alias (opcional)
-app.get('/loja/api/products/cached', (req, res) => {
-  return res.json({ products: cachedProducts });
-});
-
-// 6) Catch-all para SPA
+// 5) Catch-all para SPA
 app.get('/loja/*', (_, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
 
+// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}/loja`);
