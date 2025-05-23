@@ -3,7 +3,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('product-list');
-  const INGEST_URL = '/loja/api/products'; // POST para acionar trigger e popular cache
+  const INGEST_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos'; // POST para acionar trigger e popular cache
 
   // Cria overlay de inicialização
   const overlay = document.createElement('div');
