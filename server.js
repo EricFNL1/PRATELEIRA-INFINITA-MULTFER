@@ -29,23 +29,32 @@ app.get('/loja/api/products', async (req, res) => {
   }
 });
 
-// 4) POST /loja/api/products → flow APIPASS chama trigger e recebe JSON de produtos
+// 4) POST /loja/api/products → flow APIPASS chama trigger e envia JSON raw da APIPASS
 app.post('/loja/api/products', async (req, res) => {
-  const { page = 1, limit = 12 } = req.body;
   try {
-    const apiRes  = await axios.get(API_PASS_URL, { params: { page, limit } });
-    const resp    = apiRes.data.body.responseBody;
+    let respBody;
+    // Se vier o JSON completo da APIPASS (body.body.responseBody)
+    if (req.body.body && req.body.body.responseBody) {
+      respBody = req.body.body.responseBody;
+    } else {
+      // Caso seja chamado com { page, limit }
+      const { page = 1, limit = 12 } = req.body;
+      const apiRes = await axios.get(API_PASS_URL, { params: { page, limit } });
+      respBody = apiRes.data.body.responseBody;
+    }
+
     // Mapeia colunas para índices
-    const idx     = {};
-    resp.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
+    const idx = {};
+    respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
     // Transforma rows em array de objetos
-    const products = resp.rows.map(r => ({
+    const products = respBody.rows.map(r => ({
       id:        r[idx.CODPROD],
       name:      (r[idx.DESCRPROD] || '').trim(),
       price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
       available: r[idx.DISPONIVEL],
       image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
     }));
+
     // Devolve JSON para quem chamou a trigger
     return res.json({ products });
   } catch (err) {
@@ -54,11 +63,14 @@ app.post('/loja/api/products', async (req, res) => {
       status:  err.response?.status,
       data:    err.response?.data
     });
-    return res.status(500).json({ error: 'Não foi possível buscar produtos.' });
+    return res.status(500).json({ error: 'Não foi possível processar produtos.' });
   }
 });
 
 // 5) SPA catch-all
+app.get('/loja/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pages', 'index.html'));
+});
 app.get('/loja/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
