@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-body d-flex flex-column">
           <h5 class="card-title text-truncate" title="${prod.name}">${prod.name}</h5>
           <p class="card-text mt-auto mb-2"><strong>R$ ${Number(prod.price).toFixed(2)}</strong></p>
-          <p class="card-text mt-auto mb-2"><strong>Qtd ${Number(prod.disponivel ?? 0)}</strong></p>
+          <p class="card-text mt-auto mb-2"><strong>Qtd ${Number(prod.available ?? 0)}</strong></p>
           <div class="d-grid gap-2">
             <button class="btn btn-warning btn-sm">Adicionar</button>
             <button class="btn btn-outline-warning btn-sm">Detalhes</button>
