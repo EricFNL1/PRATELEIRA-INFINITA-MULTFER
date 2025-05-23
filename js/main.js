@@ -22,24 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   startBtn.addEventListener('click', async () => {
     try {
-      // Chama trigger APIPASS via GET
-      const response = await fetch('https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos');
+      // Chama trigger APIPASS via proxy em nosso servidor
+      const response = await fetch('/loja/api/products');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      const respBody = data.body?.responseBody;
-      if (!respBody) throw new Error('JSON inesperado da APIPASS');
-
-      // Mapeia colunas
-      const idx = {};
-      respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
-      // Transforma rows em array legível
-      const products = respBody.rows.map(r => ({
-        id:        r[idx.CODPROD],
-        name:      (r[idx.DESCRPROD] || '').trim(),
-        price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
-        available: r[idx.DISPONIVEL],
-        image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
-      }));
+      const { products } = await response.json();
 
       // Remove overlay e renderiza cards
       overlay.remove();
@@ -77,3 +63,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Não carrega produtos antes do clique
 });
+// const list = document.getElementById('product-list');
+// const overlay = document.getElementById('start-overlay');
