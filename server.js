@@ -11,43 +11,46 @@ const __dirname  = dirname(__filename);
 const app = express();
 const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
 
+// Armazena em memória últimos produtos recebidos via POST
+let cachedProducts = [];
+
 // 1) Body parser para JSON (POST)
 app.use(express.json());
 
 // 2) Serve conteúdo estático sob /loja
 app.use('/loja', express.static(path.join(__dirname)));
 
-// 3) GET /loja/api/products → proxy APIPASS (para front-end)
+// 3) GET /loja/api/products → proxy APIPASS (para front-end, faz fetch direto da APIPASS)
 app.get('/loja/api/products', async (req, res) => {
-  const { page = 1, limit = 12 } = req.query;
+  const { page = 1, limit = 100 } = req.query;
   try {
     const apiRes = await axios.get(API_PASS_URL, { params: { page, limit } });
     return res.json(apiRes.data);
   } catch (err) {
     console.error('Erro APIPASS GET:', err.message);
-    return res.status(500).json({ error: 'Não foi possível buscar produtos.' });
+    return res.status(500).json({ error: 'Não foi possível buscar produtos da APIPASS.' });
   }
 });
 
-// 4) POST /loja/api/products → flow APIPASS chama trigger e envia JSON raw da APIPASS
+// 4) POST /loja/api/products → flow APIPASS envia JSON raw; servidor processa e armazena
 app.post('/loja/api/products', async (req, res) => {
   try {
+    // 4.1) Obtém responseBody: se veio embutido, ou faz GET interno
     let respBody;
-    // Se vier o JSON completo da APIPASS (body.body.responseBody)
     if (req.body.body && req.body.body.responseBody) {
       respBody = req.body.body.responseBody;
     } else {
-      // Caso seja chamado com { page, limit }
-      const { page = 1, limit = 12 } = req.body;
+      const { page = 1, limit = 100 } = req.body;
       const apiRes = await axios.get(API_PASS_URL, { params: { page, limit } });
       respBody = apiRes.data.body.responseBody;
     }
 
-    // Mapeia colunas para índices
+    // 4.2) Mapeia colunas para índices
     const idx = {};
-    respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
-    // Transforma rows em array de objetos
-    const products = respBody.rows.map(r => ({
+    respBody.fieldsMetadata.forEach((f, i) => idx[f.name] = i);
+
+    // 4.3) Transforma rows em objetos e atualiza cache
+    cachedProducts = respBody.rows.map(r => ({
       id:        r[idx.CODPROD],
       name:      (r[idx.DESCRPROD] || '').trim(),
       price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
@@ -55,23 +58,21 @@ app.post('/loja/api/products', async (req, res) => {
       image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
     }));
 
-    // Devolve JSON para quem chamou a trigger
-    return res.json({ products });
+    // 4.4) Retorna array formatado ao cliente
+    return res.json({ products: cachedProducts });
   } catch (err) {
-    console.error('Erro APIPASS POST:', {
-      message: err.message,
-      status:  err.response?.status,
-      data:    err.response?.data
-    });
+    console.error('Erro APIPASS POST:', err);
     return res.status(500).json({ error: 'Não foi possível processar produtos.' });
   }
 });
 
-// 5) SPA catch-all
-app.get('/loja/*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'pages', 'index.html'));
+// 5) GET /loja/api/products/cached → retorna os produtos armazenados
+app.get('/loja/api/products/cached', (_, res) => {
+  return res.json({ products: cachedProducts });
 });
-app.get('/loja/*', (req, res) => {
+
+// 6) SPA catch-all: devolve index.html para qualquer outra rota em /loja
+app.get('/loja/*', (_, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
 
