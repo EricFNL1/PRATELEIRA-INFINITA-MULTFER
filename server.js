@@ -9,18 +9,17 @@ const __dirname  = dirname(__filename);
 const app = express();
 const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
 
-// ATENÇÃO: todas as rotas devem começar com /loja para casar com o proxy reverso
+// Serve arquivos estáticos
 app.use('/loja/assets', express.static(path.join(__dirname, 'assets')));
 app.use('/loja/js', express.static(path.join(__dirname, 'js')));
 app.use('/loja/css', express.static(path.join(__dirname, 'css'))); // Se tiver pasta css
-// Adicione outras se necessário, como /images, /fonts
 
-// Rota principal da loja
-app.get('/loja', (req, res) => {
+// Rota principal da loja (aceita /loja e /loja/)
+app.get(['/loja', '/loja/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'pages', 'index.html'));
 });
 
-// Proxy para API (se consumir via frontend, também prefixe com /loja/api/products)
+// Proxy para API (sempre prefixe com /loja/api/products)
 app.get('/loja/api/products', async (req, res) => {
   const { page = 1, limit = 12 } = req.query;
   try {
@@ -32,7 +31,7 @@ app.get('/loja/api/products', async (req, res) => {
   }
 });
 
-// Redirecionar qualquer /loja/* para 404 se não existir
+// 404 para o resto do /loja/*
 app.use('/loja/*', (req, res) => {
   res.status(404).send('Página não encontrada');
 });
