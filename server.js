@@ -12,7 +12,7 @@ const app = express();
 const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
 
 // Serve todo conteúdo estático (root, assets, js, etc.)
-app.use(express.static(path.join(__dirname)));
+app.use('/loja', express.static(path.join(__dirname)));
 
 // Rota principal
 app.get('/', (req, res) => {
