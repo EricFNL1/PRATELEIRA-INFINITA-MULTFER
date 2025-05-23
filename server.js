@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
+const API_PASS_URL = '/loja/api/products';
 
 // Middleware CSP: allow same-origin, external APIs, and CDNs for styles and scripts
 app.use((req, res, next) => {
