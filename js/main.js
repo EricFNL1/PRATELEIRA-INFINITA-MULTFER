@@ -5,7 +5,7 @@ const trigger = document.getElementById('scroll-trigger');
 
 async function loadProducts() {
   try {
-    const res = await fetch(`/api/products?page=${page}&limit=12`);
+    const res = await fetch(`/loja/api/products?page=${page}&limit=12`);
     const { products } = await res.json();
     products.forEach(prod => {
       const col = document.createElement('div');
