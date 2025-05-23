@@ -1,8 +1,9 @@
 // public/js/main.js
-// Monta cards de produtos carregados do servidor via cache, com overlay de iniciação
+// Monta cards de produtos disparados via GET direto na APIPASS, com overlay de iniciação
 
 document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('product-list');
+  const API_PASS_URL = 'https://core.apipass.com.br/api/bbf44a81-6be1-41a5-87cc-578c502c55d2/prod/puxa-produtos';
 
   // Cria overlay de inicialização
   const overlay = document.createElement('div');
@@ -23,24 +24,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handler do clique em Iniciar
   startBtn.addEventListener('click', async () => {
     try {
-      const response = await fetch('/loja/api/products');
-      if (response.status === 204) {
-        console.warn('Nenhum produto disponível.');
-        overlay.remove();
-        return;
-      }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
+      // Dispara GET direto na APIPASS
+      const response = await fetch(API_PASS_URL);
+      if (!response.ok) throw new Error(`APIPASS HTTP ${response.status}`);
       const data = await response.json();
-      const products = data.products;
-      if (!Array.isArray(products)) throw new Error('Formato inválido: products não é array');
+      const respBody = data.body?.responseBody;
+      if (!respBody || !Array.isArray(respBody.rows)) throw new Error('JSON inesperado da APIPASS');
+
+      // Mapeia colunas para índices
+      const idx = {};
+      respBody.fieldsMetadata.forEach((f, i) => { idx[f.name] = i });
+      // Converte rows em array de produtos
+      const products = respBody.rows.map(r => ({
+        id:        r[idx.CODPROD],
+        name:      (r[idx.DESCRPROD] || '').trim(),
+        price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
+        available: r[idx.DISPONIVEL],
+        image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
+      }));
 
       // Remove overlay e renderiza cards
       overlay.remove();
       products.forEach(prod => renderCard(prod, list));
     } catch (e) {
-      console.error('Erro ao buscar produtos:', e);
-      alert('Erro ao iniciar. Confira o console para detalhes.');
+      console.error('Erro ao buscar produtos da APIPASS:', e);
+      alert('Falha ao iniciar. Veja console.');
     }
   });
 
@@ -51,10 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     col.innerHTML = `
       <div class="card h-100 shadow-sm">
         <div class="ratio ratio-1x1">
-          <img src="${prod.image}"
-               class="card-img-top p-3"
-               alt="${prod.name}"
-               style="object-fit: contain;" />
+          <img src="${prod.image}" class="card-img-top p-3" alt="${prod.name}" style="object-fit: contain;" />
         </div>
         <div class="card-body d-flex flex-column">
           <h5 class="card-title text-truncate" title="${prod.name}">${prod.name}</h5>
