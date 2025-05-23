@@ -1,10 +1,10 @@
 // public/js/main.js
-// Monta cards de produtos diretamente da APIPASS via GET trigger
+// Monta cards de produtos carregados do servidor via cache, com overlay de iniciação
 
 document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('product-list');
 
-  // Overlay de inicialização
+  // Cria overlay de inicialização
   const overlay = document.createElement('div');
   overlay.id = 'start-overlay';
   Object.assign(overlay.style, {
@@ -20,23 +20,31 @@ document.addEventListener('DOMContentLoaded', () => {
   overlay.appendChild(startBtn);
   document.body.appendChild(overlay);
 
+  // Handler do clique em Iniciar
   startBtn.addEventListener('click', async () => {
     try {
-      // Chama trigger APIPASS via proxy em nosso servidor
       const response = await fetch('/loja/api/products');
+      if (response.status === 204) {
+        console.warn('Nenhum produto disponível.');
+        overlay.remove();
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const { products } = await response.json();
+
+      const data = await response.json();
+      const products = data.products;
+      if (!Array.isArray(products)) throw new Error('Formato inválido: products não é array');
 
       // Remove overlay e renderiza cards
       overlay.remove();
       products.forEach(prod => renderCard(prod, list));
     } catch (e) {
       console.error('Erro ao buscar produtos:', e);
-      alert('Erro ao iniciar. Confira o console.');
+      alert('Erro ao iniciar. Confira o console para detalhes.');
     }
   });
 
-  // renderiza um card
+  // Função para renderizar cada card
   function renderCard(prod, container) {
     const col = document.createElement('div');
     col.className = 'col-sm-6 col-md-4 col-lg-3 mb-4';
@@ -60,8 +68,4 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
     container.appendChild(col);
   }
-
-  // Não carrega produtos antes do clique
 });
-// const list = document.getElementById('product-list');
-// const overlay = document.getElementById('start-overlay');
