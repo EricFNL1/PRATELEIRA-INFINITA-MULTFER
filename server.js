@@ -47,7 +47,7 @@ app.post('/loja/api/products', async (req, res) => {
       name:      (r[idx.DESCRPROD] || '').trim(),
       price:     r[idx.VLRVENDA] != null ? r[idx.VLRVENDA] : r[idx.PREPRO],
       available: r[idx.DISPONIVEL],
-      image:     `/loja/assets/img/products/${r[idx.CODPROD]}.jpg`
+      image:     `https://multfer.duckdns.org/img/${r[idx.CODPROD]}_1.png`
     }));
 
     console.log(`Cache atualizado com ${cachedProducts.length} produtos`);
