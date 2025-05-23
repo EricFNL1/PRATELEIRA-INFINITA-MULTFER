@@ -1,9 +1,9 @@
 // public/js/main.js
-// Monta cards de produtos via proxy `/loja/api/products`, com overlay de iniciação
+// Monta cards de produtos via proxy `/loja/api/products`, com overlay de iniciação e chamada POST
 
 document.addEventListener('DOMContentLoaded', () => {
   const list = document.getElementById('product-list');
-  const PROXY_URL = '/loja/api/products'; // proxy para APIPASS via server.js
+  const INGEST_URL = '/loja/api/products'; // POST para acionar trigger e popular cache
 
   // Cria overlay de inicialização
   const overlay = document.createElement('div');
@@ -21,27 +21,25 @@ document.addEventListener('DOMContentLoaded', () => {
   overlay.appendChild(startBtn);
   document.body.appendChild(overlay);
 
-  // Handler do clique em Iniciar
+  // Ao clicar, faz POST para trigger da APIPASS e obtém lista de produtos
   startBtn.addEventListener('click', async () => {
     try {
-      // Chama proxy para carregar produtos (server.js faz GET na APIPASS)
-      const response = await fetch(PROXY_URL);
-      if (response.status === 204) {
-        console.warn('Nenhum produto disponível.');
-        overlay.remove();
-        return;
-      }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const postRes = await fetch(INGEST_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 1, limit: 100 })
+      });
+      if (!postRes.ok) throw new Error(`Ingestão falhou: HTTP ${postRes.status}`);
 
-      const { products } = await response.json();
-      if (!Array.isArray(products)) throw new Error('Formato inválido: products não é array');
+      const { products } = await postRes.json();
+      if (!Array.isArray(products)) throw new Error('Resposta inválida: expected products array');
 
       // Remove overlay e renderiza cards
       overlay.remove();
       products.forEach(prod => renderCard(prod, list));
     } catch (e) {
-      console.error('Erro ao buscar produtos via proxy:', e);
-      alert('Falha ao iniciar. Veja console.');
+      console.error('Erro ao iniciar e buscar produtos:', e);
+      alert('Falha ao iniciar. Veja console para detalhes.');
     }
   });
 
